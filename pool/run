@@ -1,0 +1,15 @@
+#!/bin/bash
+# Runs a command with the Pool deployment credentials from pool/.env in its environment only,
+# so Wrangler, pscale and Tinybird never read or write a global login:
+#
+#   pool/run bunx wrangler deploy
+#
+# pool/.env is git-ignored (mode 600) and copied from the Shared/BuzzKit 1Password item.
+set -euo pipefail
+env_file="$(cd "$(dirname "$0")" && pwd)/.env"
+[ -f "$env_file" ] || { echo "missing $env_file (see pool/README.md)" >&2; exit 1; }
+set -a
+# shellcheck source=/dev/null
+. "$env_file"
+set +a
+exec "$@"

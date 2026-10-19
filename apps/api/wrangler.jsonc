@@ -1,8 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "buzzkit-api",
-  "account_id": "e8563b02f2bf2b6a136f2781445a486f",
-  "routes": [{ "pattern": "api.buzzkit.dev", "custom_domain": true }],
+  "name": "pool-buzzkit-api",
+  "account_id": "5f4ee34fe9caef1d02a43fa2af4e5a67",
+  "routes": [{ "pattern": "push-api.pool.day", "custom_domain": true }],
   "main": "src/index.ts",
   "compatibility_date": "2025-06-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -11,114 +11,103 @@
     "enabled": true
   },
 
-  // A preview is another version of this same Worker, so it shares every binding: the production
-  // database, Tinybird, provider credentials, KV and the subscriber Durable Objects. It is behind
-  // the same auth as production, but a send issued from a preview is written to the production
-  // database and delivered by production's own queues, so it reaches real devices.
-  // BETTER_AUTH_URL and DASHBOARD_URL are vars rather than secrets (they are public URLs) so a
-  // preview build can point them at itself and its paired dashboard preview with `--var`.
-  // Without that the preview refuses the dashboard's origin and scopes cookies to buzzkit.dev.
-  "workers_dev": true,
-  "preview_urls": true,
+  // Pool: no workers.dev or preview URLs. A preview shares every production binding, so a send
+  // issued from one reaches real devices; the only entry point is push-api.pool.day.
+  "workers_dev": false,
+  "preview_urls": false,
 
   "vars": {
     "ENVIRONMENT": "production",
     "WORKFLOW_TIME_SCALE": "1",
-    "DASHBOARD_URL": "https://buzzkit.dev",
-    "BETTER_AUTH_URL": "https://api.buzzkit.dev/v1/auth",
+    "DASHBOARD_URL": "https://push.pool.day",
+    "BETTER_AUTH_URL": "https://push-api.pool.day/v1/auth",
     "TRACE_SAMPLE_RATIO": "1",
     "TINYBIRD_URL": "https://api.us-east.aws.tinybird.co"
   },
 
-  // Cloudflare Email Service. `remote: true` sends real email even in local
-  // dev; the sender domain (libs/email.ts) must be onboarded to Email Sending first.
-  "send_email": [
-    {
-      "name": "EMAIL",
-      "remote": true
-    }
-  ],
+  // Pool: no Email Sending binding. Invite email fails cleanly (libs/email.ts); a teammate signs
+  // up while the sign-up WAF rule is lifted (pool/README.md).
 
-  // Remote resources are always named `buzzkit-<what it holds>`, never after the binding:
-  // the Hyperdrive config is `buzzkit-postgres`. A config only carries the id, so the name
+  // Remote resources are always named `pool-buzzkit-<what it holds>`, never after the binding:
+  // the Hyperdrive config is `pool-buzzkit-postgres`. A config only carries the id, so the name
   // lives in Cloudflare; rename with `wrangler hyperdrive update <id> --name` or
   // `wrangler kv namespace rename`, neither of which changes the id.
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "9b6e6bad580a458d8079caeb73bd2f58",
+      "id": "PROVISION:pool-buzzkit-postgres",
       "localConnectionString": "postgresql://postgres:postgres@localhost:5460/buzzkit"
     }
   ],
 
-  // AUTH_CACHE (`buzzkit-auth-cache`): resolved dashboard sessions (5 min) and API keys (60s,
-  // purged on revoke).
-  // PROVIDER_CACHE (`buzzkit-provider-cache`): short-lived provider tokens (APNs JWT, FCM OAuth).
-  // ENGINE_DEFS (`buzzkit-engine-definitions`): each tenant's published workflow definitions
-  // and their version, read by the subscriber actors.
+  // AUTH_CACHE (`pool-buzzkit-auth-cache`): resolved dashboard sessions (5 min) and API keys
+  // (60s, purged on revoke).
+  // PROVIDER_CACHE (`pool-buzzkit-provider-cache`): short-lived provider tokens (APNs JWT).
+  // ENGINE_DEFS (`pool-buzzkit-engine-definitions`): each tenant's published workflow
+  // definitions and their version, read by the subscriber actors.
   "kv_namespaces": [
     {
       "binding": "AUTH_CACHE",
-      "id": "db4ac8ad2808400eb5cebfd1a86e9dcd"
+      "id": "7859feafbae145c3b3570fc848a4f88b"
     },
     {
       "binding": "PROVIDER_CACHE",
-      "id": "a5e8761f3c154d63bdc7ad831492b092"
+      "id": "90ea2cb4c51a46a2b647e8d6778039c8"
     },
     {
       "binding": "ENGINE_DEFS",
-      "id": "82b773dd78654313a208b6f882b9e01d"
+      "id": "4cc0839708114dbc8ed0e887c815661e"
     }
   ],
 
   "queues": {
     "producers": [
-      { "queue": "buzzkit-deliveries", "binding": "DELIVERIES" },
-      { "queue": "buzzkit-events", "binding": "EVENTS" },
-      { "queue": "buzzkit-webhooks", "binding": "WEBHOOKS" }
+      { "queue": "pool-buzzkit-deliveries", "binding": "DELIVERIES" },
+      { "queue": "pool-buzzkit-events", "binding": "EVENTS" },
+      { "queue": "pool-buzzkit-webhooks", "binding": "WEBHOOKS" }
     ],
     "consumers": [
       {
-        "queue": "buzzkit-deliveries",
+        "queue": "pool-buzzkit-deliveries",
         "max_batch_size": 100,
         "max_batch_timeout": 1,
         "max_concurrency": 40,
         "max_retries": 8,
-        "dead_letter_queue": "buzzkit-deliveries-dlq"
+        "dead_letter_queue": "pool-buzzkit-deliveries-dlq"
       },
       {
-        "queue": "buzzkit-events",
+        "queue": "pool-buzzkit-events",
         "max_batch_size": 100,
         "max_batch_timeout": 5,
         "max_concurrency": 20,
         "max_retries": 10,
-        "dead_letter_queue": "buzzkit-events-dlq"
+        "dead_letter_queue": "pool-buzzkit-events-dlq"
       },
       {
-        "queue": "buzzkit-events-dlq",
+        "queue": "pool-buzzkit-events-dlq",
         "max_batch_size": 10,
         "max_batch_timeout": 5,
         "max_concurrency": 1,
         "max_retries": 100,
-        "dead_letter_queue": "buzzkit-events"
+        "dead_letter_queue": "pool-buzzkit-events"
       },
       {
-        "queue": "buzzkit-webhooks",
+        "queue": "pool-buzzkit-webhooks",
         "max_batch_size": 20,
         "max_batch_timeout": 2,
         "max_concurrency": 20,
         "max_retries": 5,
-        "dead_letter_queue": "buzzkit-webhooks-dlq"
+        "dead_letter_queue": "pool-buzzkit-webhooks-dlq"
       },
       {
-        "queue": "buzzkit-deliveries-dlq",
+        "queue": "pool-buzzkit-deliveries-dlq",
         "max_batch_size": 10,
         "max_batch_timeout": 5,
         "max_concurrency": 1,
         "max_retries": 3
       },
       {
-        "queue": "buzzkit-webhooks-dlq",
+        "queue": "pool-buzzkit-webhooks-dlq",
         "max_batch_size": 10,
         "max_batch_timeout": 5,
         "max_concurrency": 1,
@@ -131,7 +120,7 @@
     "bindings": [{ "name": "SUBSCRIBER_ACTOR", "class_name": "SubscriberActor" }]
   },
 
-  "workflows": [{ "name": "buzzkit-workflows", "binding": "ENGINE", "class_name": "EngineWorkflow" }],
+  "workflows": [{ "name": "pool-buzzkit-workflows", "binding": "ENGINE", "class_name": "EngineWorkflow" }],
 
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SubscriberActor"] }],
 

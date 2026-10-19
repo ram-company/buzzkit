@@ -5,6 +5,7 @@ node_modules
 
 # Local env files
 .env
+pool/.env*
 .env.local
 .env.development.local
 .env.test.local
