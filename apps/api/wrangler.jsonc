@@ -35,7 +35,7 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "PROVISION:pool-buzzkit-postgres",
+      "id": "61e79f14ad6d4664b94e703722eae207",
       "localConnectionString": "postgresql://postgres:postgres@localhost:5460/buzzkit"
     }
   ],

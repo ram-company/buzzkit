@@ -1,0 +1,7 @@
+#!/bin/bash
+# Applies BuzzKit's checked-in migrations to Pool's database: `pool/run pool/migrate`.
+# Never `db:push` or the upstream `*:production` helpers.
+set -euo pipefail
+: "${BUZZKIT_DATABASE_URL:?}"
+cd "$(dirname "$0")/../packages/database"
+DATABASE_URL="$BUZZKIT_DATABASE_URL" exec bun run db:migrate

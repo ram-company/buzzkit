@@ -9,7 +9,8 @@ this folder. Keep it that way: no application code changes, so an upgrade is a r
 | API Worker `pool-buzzkit-api` | `https://push-api.pool.day` (public: the iOS SDK calls `/v1/client/*`) |
 | Dashboard Worker `pool-buzzkit-web` | `https://push.pool.day` |
 | Cloudflare account | Pool, `5f4ee34fe9caef1d02a43fa2af4e5a67` (Workers Paid) |
-| PostgreSQL | PlanetScale Postgres in the Pool org, database `buzzkit` owned by role `buzzkit`, through Hyperdrive `pool-buzzkit-postgres` (query caching off) |
+| PostgreSQL | PlanetScale org `randomaccessmemories`, cluster `buzzkit` (Postgres 17, AWS us-east-1, PS-10 with two replicas), database `buzzkit` owned by the PlanetScale role `buzzkit`, through Hyperdrive `pool-buzzkit-postgres` (query caching off) |
+| Sign-up | Blocked by the zone WAF custom rule "BuzzKit: block dashboard sign-up" on `pool.day` |
 | Tinybird | Workspace `pool_staging`, AWS us-east (`https://api.us-east.aws.tinybird.co`) |
 | KV, queues | `pool-buzzkit-*`, created by `pool/provision.sh` |
 | Secrets | 1Password, Pool account, Shared vault, item `BuzzKit` |
@@ -40,43 +41,43 @@ DASHBOARD_OWNER_EMAIL, DASHBOARD_OWNER_PASSWORD
 APNS_KEY_ID, APNS_TEAM_ID, APNS_PRIVATE_KEY   # uploaded through the API, never a Worker secret
 ```
 
-Refresh it from 1Password in one session (one Touch ID prompt) with
-`op item get BuzzKit --vault Shared --account pool-team.1password.com`.
+`pool/.env.keys` holds what the workspace setup minted: per tenant (`PRODUCTION` is
+`default`, `STAGING` is `staging`) the server key `BUZZKIT_<T>_API_KEY` for Convex, the
+client key `BUZZKIT_<T>_CLIENT_KEY` and `BUZZKIT_<T>_IDENTITY_SECRET`. Both files are copies
+of the Shared/`BuzzKit` item (Pool 1Password account); the Cloudflare token is its own
+Shared item `CLOUDFLARE_API_TOKEN`, the PlanetScale service token the Shared item
+`PlanetScale`.
+
+The APNs key is the one production Convex sends with (`APNS_*` on the production
+deployment). The `APNS_*` values in the 1Password `Development` and `Production` notes are
+a key Apple rejects (`InvalidProviderToken`, checked 2026-10-20).
 
 ## Provisioning
 
-1. **Database.** In the Pool PlanetScale org, a Postgres database with a temporary admin
-   role creates database `buzzkit`, owned by a dedicated `buzzkit` role that cannot read
-   anything else:
-
-   ```bash
-   pool/run sh -c 'pscale role create <db> main buzzkit-setup --inherited-roles postgres --ttl 1h \
-     --org "$PLANETSCALE_ORG" --service-token-id "$PLANETSCALE_SERVICE_TOKEN_ID" \
-     --service-token "$PLANETSCALE_SERVICE_TOKEN" --format json'
-   # As buzzkit-setup: CREATE ROLE buzzkit LOGIN PASSWORD '…'; CREATE DATABASE buzzkit OWNER buzzkit;
-   # REVOKE ALL ON DATABASE buzzkit FROM PUBLIC;
-   # then: pscale role reassign … --successor buzzkit, and delete buzzkit-setup.
-   ```
-
-   The temporary role cannot be dropped while it owns objects; reassign first.
+1. **Database.** `pool/pscale` runs pscale as the service token (it creates the cluster and
+   so holds full access to it). Create the runtime role `buzzkit` with no inherited roles
+   and a one-hour admin role, `pool/run pool/pscale role create buzzkit main buzzkit-setup
+   --inherited-roles postgres --ttl 1h --org randomaccessmemories`. As the admin role:
+   `CREATE DATABASE buzzkit; REVOKE ALL ON DATABASE buzzkit FROM PUBLIC;`. The admin role
+   cannot `ALTER DATABASE … OWNER` to the runtime role (it may not `SET ROLE` to it), so hand
+   ownership over with `pscale role reassign buzzkit main <admin role id> --successor
+   <runtime role username>`, then delete the admin role. The runtime role's
+   `database_url` with path `/buzzkit` is `BUZZKIT_DATABASE_URL`.
 2. **Cloudflare.** `pool/run pool/provision.sh` creates or finds the KV namespaces, the six
    queues and Hyperdrive, and writes their ids over the `PROVISION:` placeholders in
    `apps/api/wrangler.jsonc`. Commit the result.
-3. **Schema.** `pool/run bun run --cwd packages/database db:migrate` with
-   `DATABASE_URL=$BUZZKIT_DATABASE_URL`, then `pool/run bun run --cwd packages/tinybird deploy`.
+3. **Schema.** `pool/run pool/migrate` (checked-in Drizzle migrations against
+   `BUZZKIT_DATABASE_URL`), then `pool/run bun run --cwd packages/tinybird deploy`.
    Never `db:push` or the upstream `*:production` helpers.
-4. **Secrets and deploy.** From `apps/api`: put `BETTER_AUTH_SECRET`,
-   `CREDENTIAL_MASTER_KEY_V1`, `SQIDS_ALPHABET` and `TINYBIRD_TOKEN` with
-   `bunx wrangler secret bulk`, then `bunx wrangler deploy`. From `apps/web`: `bun run build`
+4. **Secrets and deploy.** From `apps/api`: `bunx wrangler deploy --secrets-file <json>` with
+   `BETTER_AUTH_SECRET`, `CREDENTIAL_MASTER_KEY_V1`, `SQIDS_ALPHABET` and `TINYBIRD_TOKEN`
+   (write the file from `pool/.env` and delete it after). From `apps/web`: `bun run build`
    then `bunx wrangler deploy`. Both through `pool/run`. Upstream needs Workers Paid: on Free
    the API upload fails with "Script startup exceeded CPU time limit".
-5. **Lock sign-up.** A zone WAF custom rule on `pool.day` blocks
-   `http.host eq "push-api.pool.day" and starts_with(http.request.uri.path, "/v1/auth/sign-up")`.
-   Create the owner account first; lift the rule briefly to add a teammate (invites need an
-   Email Sending binding this deployment does not have).
-6. **Workspace.** Sign in as the owner (`POST /v1/auth/sign-in/email` with
-   `Origin: https://push.pool.day`, token from the `set-auth-token` header, then
-   `Authorization: Bearer` plus `buzzkit-workspace: pool`):
+5. **Workspace.** `pool/run bun pool/setup-workspace.ts` signs up the owner, then does the
+   steps below as that session (`Origin: https://push.pool.day`, token from the
+   `set-auth-token` header, then `Authorization: Bearer` plus `buzzkit-workspace: pool`). It
+   skips what exists and writes what it mints to `pool/.env.keys`:
    - create workspace `pool` and tenant `staging` beside `default`;
    - upload the APNs key to each tenant twice, once per `environment` (`sandbox`,
      `production`), with that tenant's bundle id: `default` → `com.randomaccessmemories.pool`
@@ -88,8 +89,14 @@ Refresh it from 1Password in one session (one Touch ID prompt) with
      user id signed by Convex;
    - create one tenant-locked server key per tenant with `messages:send` (messages, Live
      Activities), `messages:read`, `subscribers:read` and `subscribers:write` (imports,
-     deletion), and read each tenant's client key and identity secret; they go to the
-     matching Convex deployment and app build.
+     deletion), a client key per tenant, and read each tenant's identity secret; they go to
+     the matching Convex deployment (`BUZZKIT_API_URL`, `BUZZKIT_API_KEY`,
+     `BUZZKIT_CLIENT_KEY`, `BUZZKIT_IDENTITY_SECRET`).
+6. **Lock sign-up.** A zone WAF custom rule on `pool.day` blocks
+   `http.host eq "push-api.pool.day" and starts_with(http.request.uri.path, "/v1/auth/sign-up")`.
+   Add it to the zone's existing custom ruleset (never `PUT` the entrypoint over rules that
+   are there). Lift it briefly to add a teammate: invites need an Email Sending binding this
+   deployment does not have.
 7. **Verify.** `GET https://push-api.pool.day/v1/health` reports the database `ok`; the
    dashboard serves `/login`; a test message reaches a Debug build. APNs cannot be
    exercised from `wrangler dev` on macOS, only against the deployed Worker.
