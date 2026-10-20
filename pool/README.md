@@ -101,6 +101,14 @@ a key Apple rejects (`InvalidProviderToken`, checked 2026-10-20).
    dashboard serves `/login`; a test message reaches a Debug build. APNs cannot be
    exercised from `wrangler dev` on macOS, only against the deployed Worker.
 
+## Pushing this branch
+
+The pre-push hook's `bun check-types` regenerates the API's Worker types from
+`apps/api/wrangler.jsonc`, which has no `EMAIL` binding, so `libs/email.ts` fails to
+typecheck. At runtime the missing binding throws inside its `try`, and an invite reports
+`emailSent: false`. Run `bun run test` (the hook's other half), restore the regenerated
+`apps/api/worker-configuration.d.ts`, and push with `--no-verify`.
+
 ## Upgrading
 
 `git fetch upstream && git rebase upstream/main`, review the diff of both Wrangler files,
