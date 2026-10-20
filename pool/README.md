@@ -89,7 +89,7 @@ a key Apple rejects (`InvalidProviderToken`, checked 2026-10-20).
    - turn on `identity.requireVerification` for both tenants, so a device can only claim a
      user id signed by Convex;
    - create one tenant-locked server key per tenant with `messages:send` (messages, Live
-     Activities), `messages:read`, `subscribers:read` and `subscribers:write` (imports,
+     Activities, the background pushes that wake Pool's screenshot sync), `messages:read`, `subscribers:read` and `subscribers:write` (imports,
      deletion), a client key per tenant, and read each tenant's identity secret; they go to
      the matching Convex deployment (`BUZZKIT_API_URL`, `BUZZKIT_API_KEY`,
      `BUZZKIT_CLIENT_KEY`, `BUZZKIT_IDENTITY_SECRET`).
