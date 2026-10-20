@@ -100,6 +100,9 @@ describe('sendBackgroundPushes', () => {
         expiresAt: undefined,
       })
     );
+    const memos = new Set(send.mock.calls.map(([input]) => (input as { tokens: unknown }).tokens));
+    expect(memos.size).toBe(1);
+    expect([...memos][0]).toBeDefined();
   });
 
   it('reports every token as no_credential without sending when the environment has no credential', async () => {

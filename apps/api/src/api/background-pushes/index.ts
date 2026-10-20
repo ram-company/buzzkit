@@ -4,6 +4,7 @@ import { BadRequestError } from '@buzzkit/api/libs/error';
 import { log } from '@buzzkit/api/libs/logger';
 import { trace } from '@buzzkit/api/libs/telemetry';
 import { type MessagePayload, PROVIDERS } from '@buzzkit/api/providers/index';
+import { createTokenMemo } from '@buzzkit/api/providers/shared/cache';
 import { runConcurrently } from '@buzzkit/api/utils/concurrency';
 import type { Db } from '@buzzkit/database';
 import { BACKGROUND_PUSH_CONCURRENCY } from './constants';
@@ -66,6 +67,7 @@ export async function sendBackgroundPushes(
         ...(input.data !== undefined ? { apns: { payload: input.data } } : {}),
       };
       const expiresAt = resolveBackgroundPushExpiry(input.ttlSeconds, Date.now());
+      const providerTokens = createTokenMemo();
       const results: BackgroundPushResult[] = [];
 
       await runConcurrently(
@@ -85,6 +87,7 @@ export async function sendBackgroundPushes(
                 endpoint: token,
                 payload,
                 expiresAt,
+                tokens: providerTokens,
               });
               span.set('delivery.ok', result.ok);
               if (!result.ok) span.set('delivery.code', result.code);
