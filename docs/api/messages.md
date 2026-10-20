@@ -67,7 +67,7 @@ Providers classify their native reasons into a shared taxonomy; **policy lives i
 | `rate_limited`, `provider_unavailable`, `transport`, `timeout` | yes | `retrying` with backoff |
 | `invalid_credential`, `payload_invalid`, `payload_too_large`, `unknown` | no | `failed` |
 | `no_credential`, `expired`, `unsupported` | no | `failed` immediately |
-| `unsubscribed` | no | `failed` immediately — the subscription was muted, removed, or invalidated between fan-out and this attempt; checked at attempt time so a retry hours later never reaches a user who opted out |
+| `unsubscribed` | no | `failed` immediately — the subscription was muted, removed, or invalidated between fan-out and this attempt, or its endpoint moved to another subscriber (an import or registration rebinds it in place); checked at attempt time so a retry hours later never reaches a user who opted out or a device that changed hands |
 
 ## Delivery statuses (Twilio/SendGrid-aligned)
 
