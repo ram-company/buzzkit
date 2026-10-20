@@ -115,6 +115,22 @@ describe('send', () => {
     expect(headers.get('apns-collapse-id')).toBe('thread-9');
   });
 
+  it('sends a background push with only the caller data, leaving the expiry to APNs', async () => {
+    fetchMock.mockResolvedValueOnce(apnsResponse(200, {}, { 'apns-id': 'BG-1' }));
+
+    await apnsProvider.send(
+      sendInput({ expiresAt: undefined, payload: { silent: true, apns: { payload: { type: 'pool_sync' } } } })
+    );
+
+    const init = fetchMock.mock.calls[0]![1] as RequestInit;
+    const headers = new Headers((init.headers ?? {}) as Record<string, string>);
+    expect(headers.get('apns-push-type')).toBe('background');
+    expect(headers.get('apns-priority')).toBe('5');
+    expect(headers.get('apns-topic')).toBe('com.example.app');
+    expect(headers.has('apns-expiration')).toBe(false);
+    expect(JSON.parse(String(init.body))).toEqual({ aps: { 'content-available': 1 }, type: 'pool_sync' });
+  });
+
   it('classifies a dead token and captures the response', async () => {
     fetchMock.mockResolvedValueOnce(apnsResponse(410, { reason: 'Unregistered' }));
 

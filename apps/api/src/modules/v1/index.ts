@@ -1,6 +1,7 @@
 import { response } from '@buzzkit/api/libs/response';
 import Elysia from 'elysia';
 import { admin } from './admin';
+import { backgroundPushesSend } from './background-pushes/send';
 import { clientEvents } from './client/events';
 import { clientIdentify } from './client/identify';
 import { clientLiveActivities } from './client/live-activities';
@@ -262,7 +263,9 @@ const client = new Elysia()
   /* /v1/client/widgets */
   .use(clientWidgets)
   /* /v1/widgets/reload */
-  .use(widgetsReload);
+  .use(widgetsReload)
+  /* /v1/background-pushes/send */
+  .use(backgroundPushesSend);
 
 export const v1 = new Elysia({ prefix: '/v1' })
   .use(response)

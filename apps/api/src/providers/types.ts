@@ -86,7 +86,7 @@ export type ProviderSendInput = {
   environment: ProviderEnvironment;
   endpoint: string;
   payload: MessagePayload;
-  expiresAt: Date | null;
+  expiresAt?: Date | null;
   tokens?: TokenMemo;
 };
 

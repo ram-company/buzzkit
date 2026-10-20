@@ -18,14 +18,16 @@ export function buildHeaders(params: {
   priority: number;
   pushType?: ApnsPushType;
   collapseId?: string;
-  expiresAt: Date | null;
+  expiresAt?: Date | null;
 }): Record<string, string> {
   return {
     authorization: `bearer ${params.jwt}`,
     'apns-topic': `${params.bundleId}${(params.pushType && TOPIC_SUFFIXES[params.pushType]) ?? ''}`,
     'apns-push-type': params.pushType ?? 'alert',
     'apns-priority': String(params.priority),
-    'apns-expiration': String(params.expiresAt ? Math.floor(params.expiresAt.getTime() / 1000) : 0),
+    ...(params.expiresAt === undefined
+      ? {}
+      : { 'apns-expiration': String(params.expiresAt ? Math.floor(params.expiresAt.getTime() / 1000) : 0) }),
     'content-type': 'application/json',
     ...(params.collapseId ? { 'apns-collapse-id': params.collapseId } : {}),
   };

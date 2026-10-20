@@ -7,7 +7,7 @@ import { requestAccessToken, TOKEN_TTL_MARGIN_SECONDS, TokenError, tokenCacheKey
 
 export async function send(input: ProviderSendInput): Promise<ProviderSendResult> {
   const startedAt = Date.now();
-  const request = buildFcmMessage(input.endpoint, input.payload, input.expiresAt);
+  const request = buildFcmMessage(input.endpoint, input.payload, input.expiresAt ?? null);
 
   let accessToken: string;
   try {

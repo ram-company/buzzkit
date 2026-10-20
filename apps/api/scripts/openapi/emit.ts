@@ -57,6 +57,7 @@ const OVERRIDES: Record<string, string> = {
   'post /v1/client/live-activities': 'Register a client live activity',
   'delete /v1/client/live-activities/{id}': 'End a client live activity',
   'post /v1/live-activities/send': 'Send a live activity update',
+  'post /v1/background-pushes/send': 'Send background pushes',
 };
 
 function article(noun: string): string {
