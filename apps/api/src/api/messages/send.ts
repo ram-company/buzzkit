@@ -106,6 +106,7 @@ async function listDeliveriesForProcessing(db: Db, ids: number[]): Promise<Proce
       },
       subscription: {
         id: tables.subscription.id,
+        subscriberId: tables.subscription.subscriberId,
         platform: tables.subscription.platform,
         endpoint: tables.subscription.endpoint,
         enabled: tables.subscription.enabled,
@@ -145,6 +146,7 @@ export async function processDeliveryBatch(
     );
     const processed: ProcessedDelivery[] = [];
     const unsubscribed: ProcessableRow[] = [];
+    const moved: ProcessableRow[] = [];
     const expired: ProcessableRow[] = [];
     const candidates: Array<{ job: DeliveryJob; row: ProcessableRow }> = [];
     const now = Date.now();
@@ -171,6 +173,11 @@ export async function processDeliveryBatch(
         row.subscriber.deletedAt
       ) {
         unsubscribed.push(row);
+        processed.push({ job, messageId: row.message.id, outcome: 'failed', retryDelaySeconds: null });
+        continue;
+      }
+      if (row.subscription.subscriberId !== row.delivery.subscriberId) {
+        moved.push(row);
         processed.push({ job, messageId: row.message.id, outcome: 'failed', retryDelaySeconds: null });
         continue;
       }
@@ -284,6 +291,12 @@ export async function processDeliveryBatch(
       unsubscribed.map((row) => row.delivery.id),
       'unsubscribed',
       'Subscription is muted, removed, or invalid'
+    );
+    await failDeliveriesImmediately(
+      db,
+      moved.map((row) => row.delivery.id),
+      'unsubscribed',
+      'The device moved to another subscriber after the message was sent'
     );
     await failDeliveriesImmediately(
       db,

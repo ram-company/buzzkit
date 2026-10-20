@@ -68,7 +68,15 @@ export type ProcessableRow = {
   message: Pick<Message, 'id' | 'payload' | 'targets' | 'topicId' | 'expiresAt'>;
   subscription: Pick<
     Subscription,
-    'id' | 'endpoint' | 'enabled' | 'status' | 'deletedAt' | 'channel' | 'environment' | 'platform'
+    | 'id'
+    | 'subscriberId'
+    | 'endpoint'
+    | 'enabled'
+    | 'status'
+    | 'deletedAt'
+    | 'channel'
+    | 'environment'
+    | 'platform'
   >;
   subscriber: Pick<Subscriber, 'id' | 'externalId' | 'attributes' | 'deletedAt'>;
 };
