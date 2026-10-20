@@ -81,10 +81,11 @@ a key Apple rejects (`InvalidProviderToken`, checked 2026-10-20).
    - create workspace `pool` and tenant `staging` beside `default`;
    - upload the APNs key to each tenant twice, once per `environment` (`sandbox`,
      `production`), with that tenant's bundle id: `default` → `com.randomaccessmemories.pool`
-     (Release), `staging` → `com.randomaccessmemories.pool.debug` (Debug and Staging). The
-     SDK registers each device under the environment of its provisioning profile, so a
-     TestFlight Staging build needs the production slot too. Omitting `environment` fills
-     both slots with one bundle id;
+     (Release), `staging` → `com.randomaccessmemories.pool.debug` (Debug and Staging). Pool's
+     Convex imports every device itself (the SDK never registers one) under its
+     deployment's `APNS_ENVIRONMENT`, the environment it sends silent pushes with, so the
+     slot that matters is the one that environment names; uploading both keeps either
+     working. Omitting `environment` fills both slots with one bundle id;
    - turn on `identity.requireVerification` for both tenants, so a device can only claim a
      user id signed by Convex;
    - create one tenant-locked server key per tenant with `messages:send` (messages, Live
