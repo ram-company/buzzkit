@@ -17,28 +17,45 @@ function handleDeadLetterBatch(batch: MessageBatch<QueueMessage>): void {
   }
 }
 
+const QUEUE_ROLES = [
+  'buzzkit-events',
+  'buzzkit-events-dlq',
+  'buzzkit-webhooks',
+  'buzzkit-webhooks-dlq',
+  'buzzkit-deliveries',
+  'buzzkit-deliveries-dlq',
+] as const;
+
+export type QueueRole = (typeof QUEUE_ROLES)[number];
+
+export function resolveQueueRole(queue: string): QueueRole | null {
+  return QUEUE_ROLES.find((role) => queue === role || queue.endsWith(`-${role}`)) ?? null;
+}
+
 export async function handleQueueBatch(batch: MessageBatch<QueueMessage>): Promise<void> {
-  if (batch.queue === 'buzzkit-events') {
+  const role = resolveQueueRole(batch.queue);
+
+  if (role === 'buzzkit-events') {
     await handleEventsBatch(batch as MessageBatch<EventsQueueMessage>);
     return;
   }
 
-  if (batch.queue === 'buzzkit-events-dlq') {
+  if (role === 'buzzkit-events-dlq') {
     await handleEventsDeadLetterBatch(batch as MessageBatch<EventsQueueMessage>);
     return;
   }
 
-  if (batch.queue === 'buzzkit-webhooks') {
+  if (role === 'buzzkit-webhooks') {
     await handleWebhookBatch(batch as MessageBatch<WebhookQueueMessage>);
     return;
   }
 
-  if (batch.queue === 'buzzkit-deliveries') {
+  if (role === 'buzzkit-deliveries') {
     await handleDeliveryBatch(batch as MessageBatch<DeliveryQueueMessage>);
     return;
   }
 
-  if (batch.queue === 'buzzkit-deliveries-dlq' || batch.queue === 'buzzkit-webhooks-dlq') {
+  if (role === 'buzzkit-deliveries-dlq' || role === 'buzzkit-webhooks-dlq') {
     handleDeadLetterBatch(batch);
     return;
   }
