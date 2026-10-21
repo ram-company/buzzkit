@@ -27760,6 +27760,373 @@
           }
         ]
       }
+    },
+    "/v1/device-pushes/send": {
+      "post": {
+        "tags": [
+          "Device Pushes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tokens",
+                  "pushType",
+                  "payload"
+                ],
+                "properties": {
+                  "tokens": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "minLength": 32,
+                      "maxLength": 512,
+                      "pattern": "^[0-9a-fA-F]+$",
+                      "type": "string"
+                    }
+                  },
+                  "pushType": {
+                    "type": "string",
+                    "enum": [
+                      "alert",
+                      "background",
+                      "liveactivity"
+                    ]
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "production",
+                      "sandbox"
+                    ]
+                  },
+                  "topic": {
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[A-Za-z0-9.-]+$",
+                    "type": "string"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      5,
+                      10
+                    ]
+                  },
+                  "collapseId": {
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "expiration": {
+                    "minimum": 0,
+                    "anyOf": [
+                      {
+                        "format": "integer",
+                        "default": 0,
+                        "type": "string"
+                      },
+                      {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tokens",
+                  "pushType",
+                  "payload"
+                ],
+                "properties": {
+                  "tokens": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "minLength": 32,
+                      "maxLength": 512,
+                      "pattern": "^[0-9a-fA-F]+$",
+                      "type": "string"
+                    }
+                  },
+                  "pushType": {
+                    "type": "string",
+                    "enum": [
+                      "alert",
+                      "background",
+                      "liveactivity"
+                    ]
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "production",
+                      "sandbox"
+                    ]
+                  },
+                  "topic": {
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[A-Za-z0-9.-]+$",
+                    "type": "string"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      5,
+                      10
+                    ]
+                  },
+                  "collapseId": {
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "expiration": {
+                    "minimum": 0,
+                    "anyOf": [
+                      {
+                        "format": "integer",
+                        "default": 0,
+                        "type": "string"
+                      },
+                      {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tokens",
+                  "pushType",
+                  "payload"
+                ],
+                "properties": {
+                  "tokens": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "minLength": 32,
+                      "maxLength": 512,
+                      "pattern": "^[0-9a-fA-F]+$",
+                      "type": "string"
+                    }
+                  },
+                  "pushType": {
+                    "type": "string",
+                    "enum": [
+                      "alert",
+                      "background",
+                      "liveactivity"
+                    ]
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "production",
+                      "sandbox"
+                    ]
+                  },
+                  "topic": {
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[A-Za-z0-9.-]+$",
+                    "type": "string"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      5,
+                      10
+                    ]
+                  },
+                  "collapseId": {
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "expiration": {
+                    "minimum": 0,
+                    "anyOf": [
+                      {
+                        "format": "integer",
+                        "default": 0,
+                        "type": "string"
+                      },
+                      {
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for status 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data",
+                    "error",
+                    "metadata"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "nullable": true,
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "error": {
+                      "nullable": true,
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "param": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "required": [
+                        "timestamp"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is malformed or fails validation; `error.code` is `validation`, `bad_request` or `parse` and `error.details` lists every failing field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No credential, or an invalid, expired or revoked one: `missing_authorization`, `invalid_api_key`, `api_key_expired`, `invalid_session`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The credential cannot do this: `missing_permission` for a missing scope, `forbidden` for another workspace, tenant or key kind.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The addressed resource does not exist for this credential, including malformed ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The write conflicts with existing state: `conflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "sendDevicePushes",
+        "summary": "Send device pushes",
+        "security": [
+          {
+            "bearerAuth": [
+              "messages:send"
+            ]
+          }
+        ]
+      }
     }
   }
 }

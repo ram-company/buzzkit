@@ -13,6 +13,7 @@ import { credential } from './credentials/[id]';
 import { credentialValidate } from './credentials/[id]/validate';
 import { delivery } from './deliveries/[id]';
 import { deliveryAttempts } from './deliveries/[id]/attempts';
+import { devicePushesSend } from './device-pushes/send';
 import { events } from './events';
 import { eventNames } from './events/names';
 import { eventName } from './events/names/[name]';
@@ -265,7 +266,9 @@ const client = new Elysia()
   /* /v1/widgets/reload */
   .use(widgetsReload)
   /* /v1/background-pushes/send */
-  .use(backgroundPushesSend);
+  .use(backgroundPushesSend)
+  /* /v1/device-pushes/send */
+  .use(devicePushesSend);
 
 export const v1 = new Elysia({ prefix: '/v1' })
   .use(response)

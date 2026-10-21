@@ -4,19 +4,42 @@ import { providerFetch, retryAfterSeconds } from '../shared/http';
 import type { ProviderSendInput, ProviderSendResult } from '../types';
 import { classify } from './classify';
 import { buildApnsPayload, isSilentPayload, resolvePushType } from './payload';
-import { buildHeaders, HOSTS } from './request';
+import { type ApnsPushType, buildHeaders, HOSTS } from './request';
 import { createApnsJwt, JWT_TTL_SECONDS, jwtCacheKey } from './tokens';
 
+export type ApnsRequest = {
+  pushType: ApnsPushType;
+  priority: 5 | 10;
+  topic?: string;
+  collapseId?: string;
+  expiresAt?: Date | null;
+  body: Record<string, unknown>;
+};
+
+export type ApnsRequestInput = Omit<ProviderSendInput, 'payload' | 'expiresAt'>;
+
 export async function send(input: ProviderSendInput): Promise<ProviderSendResult> {
-  const first = await attempt(input);
-  if (first.ok || first.code !== 'invalid_credential' || first.reason !== 'ExpiredProviderToken')
-    return first;
-  return attempt(input);
+  return await sendRequest(input, {
+    pushType: resolvePushType(input.payload),
+    priority: isSilentPayload(input.payload) || input.payload.priority === 'normal' ? 5 : 10,
+    collapseId: input.payload.collapseId,
+    expiresAt: input.expiresAt,
+    body: buildApnsPayload(input.payload),
+  });
 }
 
-async function attempt(input: ProviderSendInput): Promise<ProviderSendResult> {
+export async function sendRequest(
+  input: ApnsRequestInput,
+  request: ApnsRequest
+): Promise<ProviderSendResult> {
+  const first = await attempt(input, request);
+  if (first.ok || first.code !== 'invalid_credential' || first.reason !== 'ExpiredProviderToken')
+    return first;
+  return attempt(input, request);
+}
+
+async function attempt(input: ApnsRequestInput, request: ApnsRequest): Promise<ProviderSendResult> {
   const startedAt = Date.now();
-  const request = buildApnsPayload(input.payload);
 
   let jwt: string;
   try {
@@ -37,7 +60,7 @@ async function attempt(input: ProviderSendInput): Promise<ProviderSendResult> {
       ok: false,
       code: 'invalid_credential',
       reason: describeError(error),
-      request,
+      request: request.body,
       response: null,
       latencyMs: Date.now() - startedAt,
     };
@@ -48,12 +71,13 @@ async function attempt(input: ProviderSendInput): Promise<ProviderSendResult> {
     headers: buildHeaders({
       jwt,
       bundleId: input.details.bundleId ?? '',
-      priority: isSilentPayload(input.payload) || input.payload.priority === 'normal' ? 5 : 10,
-      pushType: resolvePushType(input.payload),
-      collapseId: input.payload.collapseId,
-      expiresAt: input.expiresAt,
+      topic: request.topic,
+      priority: request.priority,
+      pushType: request.pushType,
+      collapseId: request.collapseId,
+      expiresAt: request.expiresAt,
     }),
-    body: JSON.stringify(request),
+    body: JSON.stringify(request.body),
   });
 
   if (!result.ok) {
@@ -61,7 +85,7 @@ async function attempt(input: ProviderSendInput): Promise<ProviderSendResult> {
       ok: false,
       code: result.code,
       reason: result.reason,
-      request,
+      request: request.body,
       response: null,
       latencyMs: result.latencyMs,
     };
@@ -71,7 +95,7 @@ async function attempt(input: ProviderSendInput): Promise<ProviderSendResult> {
     return {
       ok: true,
       providerMessageId: result.response.headers.get('apns-id'),
-      request,
+      request: request.body,
       response: result.captured,
       latencyMs: result.latencyMs,
     };
@@ -87,7 +111,7 @@ async function attempt(input: ProviderSendInput): Promise<ProviderSendResult> {
     code: classify(result.response.status, reason),
     reason: reason ?? `apns_status_${result.response.status}`,
     retryAfterSeconds: retryAfterSeconds(result.response),
-    request,
+    request: request.body,
     response: result.captured,
     latencyMs: result.latencyMs,
   };

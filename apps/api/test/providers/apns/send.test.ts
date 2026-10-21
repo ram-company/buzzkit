@@ -1,4 +1,4 @@
-import { apnsProvider } from '@buzzkit/api/providers/apns/index';
+import { apnsProvider, sendRequest } from '@buzzkit/api/providers/apns/index';
 import { createTokenMemo } from '@buzzkit/api/providers/shared/cache';
 import type { ProviderSendInput } from '@buzzkit/api/providers/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -100,6 +100,29 @@ describe('send', () => {
     );
     expect(headers.get('apns-topic')).toBe('com.example.app.push-type.liveactivity');
     expect(headers.get('apns-push-type')).toBe('liveactivity');
+  });
+
+  it('sends a caller-built request with its own topic, priority and body', async () => {
+    fetchMock.mockResolvedValueOnce(apnsResponse(200, {}, { 'apns-id': 'LA-1' }));
+    const body = { aps: { event: 'update', 'content-state': { phase: 'live' }, timestamp: 1 } };
+    const { payload: _payload, expiresAt: _expiresAt, ...input } = sendInput();
+
+    const result = await sendRequest(input, {
+      pushType: 'liveactivity',
+      priority: 10,
+      topic: 'com.example.app.debug.push-type.liveactivity',
+      expiresAt: new Date('2026-09-02T00:00:00.000Z'),
+      body,
+    });
+
+    expect(result.ok).toBe(true);
+    const init = fetchMock.mock.calls[0]![1] as RequestInit;
+    const headers = new Headers((init.headers ?? {}) as Record<string, string>);
+    expect(headers.get('apns-topic')).toBe('com.example.app.debug.push-type.liveactivity');
+    expect(headers.get('apns-push-type')).toBe('liveactivity');
+    expect(headers.get('apns-priority')).toBe('10');
+    expect(headers.get('apns-expiration')).toBe(String(Date.parse('2026-09-02T00:00:00.000Z') / 1000));
+    expect(JSON.parse(String(init.body))).toEqual(body);
   });
 
   it('carries the expiry and collapse id headers', async () => {

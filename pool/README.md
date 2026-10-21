@@ -1,8 +1,11 @@
 # Pool's BuzzKit deployment
 
 Pool sends every push notification through this self-hosted BuzzKit (POOL-1511). The
-branch `pool` is upstream `buzzkit-dev/buzzkit` plus Pool's Wrangler configuration and
-this folder. Keep it that way: no application code changes, so an upgrade is a rebase.
+branch `pool` is upstream `buzzkit-dev/buzzkit` plus Pool's Wrangler configuration, this
+folder and the few API additions Pool needs: `POST /v1/device-pushes/send` (Pool's own
+alerts, silent sync pushes and Live Activity pushes to the tokens it registers), queue
+routing by role whatever the queue prefix, and moved endpoints failing as `unsubscribed`.
+Keep additions that small, so an upgrade stays a rebase.
 
 | Piece | Where |
 | --- | --- |
@@ -88,8 +91,8 @@ a key Apple rejects (`InvalidProviderToken`, checked 2026-10-20).
      working. Omitting `environment` fills both slots with one bundle id;
    - turn on `identity.requireVerification` for both tenants, so a device can only claim a
      user id signed by Convex;
-   - create one tenant-locked server key per tenant with `messages:send` (messages, Live
-     Activities, the background pushes that wake Pool's screenshot sync), `messages:read`, `subscribers:read` and `subscribers:write` (imports,
+   - create one tenant-locked server key per tenant with `messages:send` (messages and the
+     device pushes: Pool's alerts, sync wakes and Live Activities), `messages:read`, `subscribers:read` and `subscribers:write` (imports,
      deletion), a client key per tenant, and read each tenant's identity secret; they go to
      the matching Convex deployment (`BUZZKIT_API_URL`, `BUZZKIT_API_KEY`,
      `BUZZKIT_CLIENT_KEY`, `BUZZKIT_IDENTITY_SECRET`).
