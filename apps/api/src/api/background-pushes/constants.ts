@@ -1,3 +1,0 @@
-export const MAX_BACKGROUND_PUSH_TOKENS = 100;
-
-export const BACKGROUND_PUSH_CONCURRENCY = 20;

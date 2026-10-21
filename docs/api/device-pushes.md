@@ -15,7 +15,7 @@ Scope `messages:send`. `{ tokens: string[], pushType, payload, environment?, top
 - `collapseId`: `apns-collapse-id`.
 - `expiration`: `apns-expiration`, in seconds since the epoch. Omitted, the header is left out and APNs stores the push by its own policy; `0` asks APNs to try once and not store it.
 
-It runs synchronously and records no message, no deliveries and no subscription changes, like `POST /v1/live-activities/send`. The response is `{ results: [{ token, ok, status, apnsId, code?, reason?, retryAfterSeconds? }] }`, one entry per token in request order:
+It runs synchronously and records no message, no deliveries and no subscription changes, like `POST /v1/live-activities/send`. iOS budgets background pushes and may defer or coalesce them, so they say "check for work", never carry anything time-critical. The response is `{ results: [{ token, ok, status, apnsId, code?, reason?, retryAfterSeconds? }] }`, one entry per token in request order:
 
 - `status` is APNs's HTTP status, null when no response came back (`code: "transport"` or `"timeout"`).
 - `apnsId` is APNs's `apns-id` for a sent push.
