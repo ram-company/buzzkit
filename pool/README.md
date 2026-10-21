@@ -113,8 +113,8 @@ Pool's Convex keeps every device a subscription under the account's Convex user 
 reaches each of an account's devices once, and BuzzKit keeps its deliveries and opens.
 
 Audiences are segments or inline conditions. Pool sets these attributes on every subscriber with
-each import of its devices, and refreshes them when the account finishes an import or changes its
-review-request choice:
+each import of its devices, and merges them again when the account finishes an import or changes
+its review-request choice:
 
 | Attribute | Value |
 | --- | --- |
@@ -123,8 +123,9 @@ review-request choice:
 | `reviewRequestOptIn` | whether it agreed to review-request pushes |
 | `lastReviewRequestAt` | the last review-request push Pool's own broadcasts sent it |
 
-Dates are ISO strings, which BuzzKit compares as text, so a date bound reads as "on or after"
-(`gte`) or "on or before" (`lte`) that day. Pool's former audiences:
+Dates are ISO strings, which BuzzKit compares as text, so a bare date stands for the start of
+that day: `gte: "2026-10-14"` is on or after it, `lt: "2026-10-14"` is before it. Pool's former
+audiences:
 
 - Every push-enabled account: `{ "channel": "push" }`.
 - Recent importers, here the 7 days before 2026-10-21:
@@ -132,10 +133,10 @@ Dates are ISO strings, which BuzzKit compares as text, so a date bound reads as 
 - A review request: only accounts that opted in, are at least 14 days old and imported recently,
   and got no review request in 90 days:
   `{ "all": [{ "channel": "push" }, { "ref": "attributes.reviewRequestOptIn", "eq": true },
-  { "ref": "attributes.accountCreatedAt", "lte": "<14 days ago>" },
+  { "ref": "attributes.accountCreatedAt", "lt": "<14 days ago>" },
   { "ref": "attributes.lastImportAt", "gte": "<start of the window>" },
   { "any": [{ "ref": "attributes.lastReviewRequestAt", "exists": false },
-  { "ref": "attributes.lastReviewRequestAt", "lte": "<90 days ago>" }] }] }`.
+  { "ref": "attributes.lastReviewRequestAt", "lt": "<90 days ago>" }] }] }`.
   `lastReviewRequestAt` only records Pool's own past sends, so also leave out the recipients of any
   review request sent here in the last 90 days.
 
