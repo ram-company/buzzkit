@@ -14,7 +14,9 @@ describe('classify', () => {
     expect(classify(403, 'InvalidProviderToken')).toBe('invalid_credential');
     expect(classify(403, 'MissingProviderToken')).toBe('invalid_credential');
     expect(classify(403, 'ExpiredProviderToken')).toBe('invalid_credential');
-    expect(classify(400, 'BadEnvironmentKeyInToken')).toBe('invalid_credential');
+    expect(classify(403, 'BadEnvironmentKeyIdInToken')).toBe('invalid_credential');
+    expect(classify(403, 'Forbidden')).toBe('invalid_credential');
+    expect(classify(403, 'UnrelatedKeyIdInToken')).toBe('provider_unavailable');
     expect(classify(403, 'BadCertificate')).toBe('invalid_credential');
     expect(classify(403, 'BadCertificateEnvironment')).toBe('invalid_credential');
     expect(classify(400, 'TopicDisallowed')).toBe('invalid_credential');

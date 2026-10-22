@@ -10,8 +10,8 @@ Scope `messages:send`. `{ tokens: string[], pushType, payload, environment?, top
 - `pushType`: `apns-push-type`, one of `alert`, `background` or `liveactivity`.
 - `payload`: the request body, sent as given. It must hold an `aps` object (`400 payload_invalid`) and fit APNs's 4096 bytes (`400 payload_too_large`). BuzzKit adds nothing to it: no `bk` envelope, no `mutable-content`, so the app handles it as its own.
 - `environment`: the APNs environment of every token, `production` when omitted; the push goes out on the tenant's APNs credential for it.
-- `topic`: `apns-topic`. Omitted, it is the credential's bundle id, with `.push-type.liveactivity` for a Live Activity push. Set it to reach another app the same APNs key may push to, such as a debug build's bundle id.
-- `priority`: `apns-priority`, `5` or `10`; `5` for a background push and `10` otherwise when omitted.
+- `topic`: `apns-topic`, always the credential's bundle id, with `.push-type.liveactivity` for a Live Activity push. A caller may send it to assert which app it reaches; any other value is `400 topic_not_allowed`. An APNs key signs for every app of its team, so a tenant reaches only the app its credential names: a staging tenant holding the production key still cannot push to production devices.
+- `priority`: `apns-priority`, `5` or `10`; `5` for a background push and `10` otherwise when omitted. APNs refuses a background push at `10`, so it is `400 priority_not_allowed`.
 - `collapseId`: `apns-collapse-id`.
 - `expiration`: `apns-expiration`, in seconds since the epoch. Omitted, the header is left out and APNs stores the push by its own policy; `0` asks APNs to try once and not store it.
 
@@ -20,6 +20,9 @@ It runs synchronously and records no message, no deliveries and no subscription 
 - `status` is APNs's HTTP status, null when no response came back (`code: "transport"` or `"timeout"`).
 - `apnsId` is APNs's `apns-id` for a sent push.
 - `reason` is APNs's own reason (`BadDeviceToken`, `Unregistered`, `TooManyRequests`, ...), or `apns_status_<n>` when APNs gave none, so the caller can apply its own token policy; `code` is the shared delivery error code.
+- `retryAfterSeconds` is APNs's `Retry-After`, or 900 after a 5xx without one: Apple asks for 15 minutes before retrying a 5xx.
 - Without an APNs credential for the environment every token reports `code: "no_credential"`.
+
+A request sends at most six pushes at once, the connections a Worker invocation may hold waiting for response headers; more would queue against their own timeout. Every credential holding the same APNs key shares one provider token, refreshed every 50 minutes, since APNs refuses a token that changes more than once every 20 minutes on a connection.
 
 Each push runs in a `deliveries.send` span with `delivery.ok` and `delivery.code`; the `devicePushes.send` span stamps `device_push.environment`, `device_push.push_type`, `device_push.sent` and `device_push.failed`.

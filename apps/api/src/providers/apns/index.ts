@@ -11,7 +11,7 @@ export {
   resolveEnvelope,
   resolvePushType,
 } from './payload';
-export type { ApnsPushType } from './request';
+export { type ApnsPushType, apnsTopic } from './request';
 export { type ApnsRequest, type ApnsRequestInput, sendRequest } from './send';
 export { createApnsJwt } from './tokens';
 

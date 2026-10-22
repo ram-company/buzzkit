@@ -7,10 +7,11 @@ import { buildApnsPayload, isSilentPayload, resolvePushType } from './payload';
 import { type ApnsPushType, buildHeaders, HOSTS } from './request';
 import { createApnsJwt, JWT_TTL_SECONDS, jwtCacheKey } from './tokens';
 
+const SERVER_ERROR_RETRY_SECONDS = 15 * 60;
+
 export type ApnsRequest = {
   pushType: ApnsPushType;
   priority: 5 | 10;
-  topic?: string;
   collapseId?: string;
   expiresAt?: Date | null;
   body: Record<string, unknown>;
@@ -40,11 +41,12 @@ export async function sendRequest(
 
 async function attempt(input: ApnsRequestInput, request: ApnsRequest): Promise<ProviderSendResult> {
   const startedAt = Date.now();
+  const cacheKey = await jwtCacheKey(input);
 
   let jwt: string;
   try {
     jwt = await cachedToken(
-      jwtCacheKey(input),
+      cacheKey,
       JWT_TTL_SECONDS,
       () => {
         return createApnsJwt({
@@ -71,7 +73,6 @@ async function attempt(input: ApnsRequestInput, request: ApnsRequest): Promise<P
     headers: buildHeaders({
       jwt,
       bundleId: input.details.bundleId ?? '',
-      topic: request.topic,
       priority: request.priority,
       pushType: request.pushType,
       collapseId: request.collapseId,
@@ -103,14 +104,16 @@ async function attempt(input: ApnsRequestInput, request: ApnsRequest): Promise<P
 
   const reason = (result.captured.body as { reason?: string } | null)?.reason ?? null;
   if (reason === 'ExpiredProviderToken') {
-    await evictToken(jwtCacheKey(input), input.tokens);
+    await evictToken(cacheKey, input.tokens);
   }
 
   return {
     ok: false,
     code: classify(result.response.status, reason),
     reason: reason ?? `apns_status_${result.response.status}`,
-    retryAfterSeconds: retryAfterSeconds(result.response),
+    retryAfterSeconds:
+      retryAfterSeconds(result.response) ??
+      (result.response.status >= 500 ? SERVER_ERROR_RETRY_SECONDS : undefined),
     request: request.body,
     response: result.captured,
     latencyMs: result.latencyMs,

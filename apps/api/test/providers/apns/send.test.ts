@@ -102,7 +102,7 @@ describe('send', () => {
     expect(headers.get('apns-push-type')).toBe('liveactivity');
   });
 
-  it('sends a caller-built request with its own topic, priority and body', async () => {
+  it('sends a caller-built request with its priority, expiry and body to the credential topic', async () => {
     fetchMock.mockResolvedValueOnce(apnsResponse(200, {}, { 'apns-id': 'LA-1' }));
     const body = { aps: { event: 'update', 'content-state': { phase: 'live' }, timestamp: 1 } };
     const { payload: _payload, expiresAt: _expiresAt, ...input } = sendInput();
@@ -110,7 +110,6 @@ describe('send', () => {
     const result = await sendRequest(input, {
       pushType: 'liveactivity',
       priority: 10,
-      topic: 'com.example.app.debug.push-type.liveactivity',
       expiresAt: new Date('2026-09-02T00:00:00.000Z'),
       body,
     });
@@ -118,7 +117,7 @@ describe('send', () => {
     expect(result.ok).toBe(true);
     const init = fetchMock.mock.calls[0]![1] as RequestInit;
     const headers = new Headers((init.headers ?? {}) as Record<string, string>);
-    expect(headers.get('apns-topic')).toBe('com.example.app.debug.push-type.liveactivity');
+    expect(headers.get('apns-topic')).toBe('com.example.app.push-type.liveactivity');
     expect(headers.get('apns-push-type')).toBe('liveactivity');
     expect(headers.get('apns-priority')).toBe('10');
     expect(headers.get('apns-expiration')).toBe(String(Date.parse('2026-09-02T00:00:00.000Z') / 1000));
@@ -179,6 +178,18 @@ describe('send', () => {
       expect(result.code).toBe('rate_limited');
       expect(result.retryAfterSeconds).toBe(30);
     }
+  });
+
+  it('waits 15 minutes after a 5xx unless APNs says otherwise', async () => {
+    fetchMock
+      .mockResolvedValueOnce(apnsResponse(503, { reason: 'ServiceUnavailable' }))
+      .mockResolvedValueOnce(apnsResponse(503, { reason: 'ServiceUnavailable' }, { 'retry-after': '120' }));
+
+    const first = await apnsProvider.send(sendInput());
+    const second = await apnsProvider.send(sendInput());
+
+    expect(first).toMatchObject({ ok: false, code: 'provider_unavailable', retryAfterSeconds: 900 });
+    expect(second).toMatchObject({ ok: false, code: 'provider_unavailable', retryAfterSeconds: 120 });
   });
 
   it('mints the JWT once per credential and reuses it within the memo', async () => {

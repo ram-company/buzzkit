@@ -1,9 +1,13 @@
+import { sha256Hex } from '@buzzkit/api/libs/crypto';
 import { signJwt } from '../shared/jwt';
 
 export const JWT_TTL_SECONDS = 50 * 60;
 
-export function jwtCacheKey(input: { credentialId: number; credentialUpdatedAt: number }): string {
-  return `apns:jwt:${input.credentialId}:${input.credentialUpdatedAt}`;
+export async function jwtCacheKey(input: {
+  secret: string;
+  details: Record<string, string>;
+}): Promise<string> {
+  return `apns:jwt:${await sha256Hex(`${input.details.teamId ?? ''}:${input.details.keyId ?? ''}:${input.secret}`)}`;
 }
 
 export function createApnsJwt(params: { p8: string; teamId: string; keyId: string }): Promise<string> {

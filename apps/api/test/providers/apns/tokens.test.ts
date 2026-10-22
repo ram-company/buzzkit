@@ -26,7 +26,15 @@ describe('createApnsJwt', () => {
 });
 
 describe('jwtCacheKey', () => {
-  it('scopes the cache entry to the credential and its version', () => {
-    expect(jwtCacheKey({ credentialId: 7, credentialUpdatedAt: 1234 })).toBe('apns:jwt:7:1234');
+  it('shares one entry between credentials holding the same key and separates different keys', async () => {
+    const details = { teamId: 'TEAM123456', keyId: 'KEYID12345', bundleId: 'com.example.app' };
+    const key = await jwtCacheKey({ secret: 'p8', details });
+
+    expect(key).toMatch(/^apns:jwt:[0-9a-f]{64}$/);
+    expect(
+      await jwtCacheKey({ secret: 'p8', details: { ...details, bundleId: 'com.example.app.debug' } })
+    ).toBe(key);
+    expect(await jwtCacheKey({ secret: 'other-p8', details })).not.toBe(key);
+    expect(await jwtCacheKey({ secret: 'p8', details: { ...details, keyId: 'KEYID67890' } })).not.toBe(key);
   });
 });

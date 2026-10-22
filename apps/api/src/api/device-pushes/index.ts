@@ -3,7 +3,7 @@ import type { Tenant } from '@buzzkit/api/api/tenants/index';
 import { BadRequestError } from '@buzzkit/api/libs/error';
 import { log } from '@buzzkit/api/libs/logger';
 import { trace } from '@buzzkit/api/libs/telemetry';
-import { type ApnsRequest, sendRequest } from '@buzzkit/api/providers/apns/index';
+import { type ApnsRequest, apnsTopic, sendRequest } from '@buzzkit/api/providers/apns/index';
 import { createTokenMemo } from '@buzzkit/api/providers/shared/cache';
 import { runConcurrently } from '@buzzkit/api/utils/concurrency';
 import type { Db } from '@buzzkit/database';
@@ -32,6 +32,22 @@ export function assertDevicePushPayload(payload: Record<string, unknown>): void 
   );
 }
 
+export function assertDevicePushPriority(input: typeof SendDevicePushesSchema.static): void {
+  if (input.pushType !== 'background' || input.priority !== 10) return;
+  throw new BadRequestError('a background push takes priority 5; APNs refuses 10', {
+    code: 'priority_not_allowed',
+    param: 'priority',
+  });
+}
+
+export function assertDevicePushTopic(topic: string | undefined, allowed: string): void {
+  if (topic === undefined || topic === allowed) return;
+  throw new BadRequestError(`topic must be ${allowed}, the app of this tenant's credential`, {
+    code: 'topic_not_allowed',
+    param: 'topic',
+  });
+}
+
 export function resolveDevicePushExpiry(expiration: number | undefined): Date | null | undefined {
   if (expiration === undefined) return undefined;
   if (expiration === 0) return null;
@@ -44,6 +60,7 @@ export async function sendDevicePushes(
   input: typeof SendDevicePushesSchema.static
 ): Promise<DevicePushResult[]> {
   assertDevicePushPayload(input.payload);
+  assertDevicePushPriority(input);
   const environment = input.environment ?? 'production';
   const tokens = input.tokens.map((token) => token.toLowerCase());
 
@@ -70,10 +87,11 @@ export async function sendDevicePushes(
         });
       }
 
+      assertDevicePushTopic(input.topic, apnsTopic(credential.details.bundleId ?? '', input.pushType));
+
       const request: ApnsRequest = {
         pushType: input.pushType,
         priority: input.priority ?? (input.pushType === 'background' ? 5 : 10),
-        ...(input.topic !== undefined ? { topic: input.topic } : {}),
         ...(input.collapseId !== undefined ? { collapseId: input.collapseId } : {}),
         expiresAt: resolveDevicePushExpiry(input.expiration),
         body: input.payload,

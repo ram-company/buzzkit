@@ -13,7 +13,8 @@ const resolveCredential = vi.fn();
 vi.mock('@buzzkit/api/libs/logger', () => ({
   log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
-vi.mock('@buzzkit/api/providers/apns/index', () => ({
+vi.mock('@buzzkit/api/providers/apns/index', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@buzzkit/api/providers/apns/index')>()),
   sendRequest: (...args: unknown[]) => sendRequest(...args),
 }));
 vi.mock('@buzzkit/api/api/messages/send', () => ({
@@ -111,7 +112,7 @@ describe('sendDevicePushes', () => {
     expect([...memos][0]).toBeDefined();
   });
 
-  it('sends background pushes at priority 5 and passes an explicit topic through', async () => {
+  it("sends background pushes at priority 5 and accepts the credential's own topic", async () => {
     resolveCredential.mockResolvedValue(credential);
     sendRequest.mockResolvedValue({
       ok: true,
@@ -126,7 +127,7 @@ describe('sendDevicePushes', () => {
     await sendDevicePushes(db, tenant, {
       tokens: [live],
       pushType: 'liveactivity',
-      topic: 'com.example.app.debug.push-type.liveactivity',
+      topic: 'com.example.app.push-type.liveactivity',
       priority: 5,
       payload: { aps: { event: 'update', 'content-state': {} } },
     });
@@ -137,12 +138,43 @@ describe('sendDevicePushes', () => {
       expiresAt: undefined,
       body: background,
     });
-    expect(sendRequest.mock.calls[1]![1]).toMatchObject({
+    expect(sendRequest.mock.calls[1]![1]).toEqual({
       pushType: 'liveactivity',
       priority: 5,
-      topic: 'com.example.app.debug.push-type.liveactivity',
+      expiresAt: undefined,
+      body: { aps: { event: 'update', 'content-state': {} } },
     });
     expect(resolveCredential).toHaveBeenCalledWith(db, 1, 'apns', 'production');
+  });
+
+  it("refuses a topic other than the credential's app and a background push at priority 10", async () => {
+    resolveCredential.mockResolvedValue(credential);
+
+    await expect(
+      sendDevicePushes(db, tenant, {
+        tokens: [live],
+        pushType: 'alert',
+        topic: 'com.example.app.debug',
+        payload: alert,
+      })
+    ).rejects.toMatchObject({ code: 'topic_not_allowed' });
+    await expect(
+      sendDevicePushes(db, tenant, {
+        tokens: [live],
+        pushType: 'liveactivity',
+        topic: 'com.example.app',
+        payload: { aps: { event: 'update', 'content-state': {} } },
+      })
+    ).rejects.toMatchObject({ code: 'topic_not_allowed' });
+    await expect(
+      sendDevicePushes(db, tenant, {
+        tokens: [live],
+        pushType: 'background',
+        priority: 10,
+        payload: { aps: { 'content-available': 1 } },
+      })
+    ).rejects.toMatchObject({ code: 'priority_not_allowed' });
+    expect(sendRequest).not.toHaveBeenCalled();
   });
 
   it('reports every token as no_credential without sending when the environment has no credential', async () => {

@@ -12,10 +12,13 @@ export const HOSTS: Record<ProviderEnvironment, string> = {
   sandbox: 'https://api.sandbox.push.apple.com',
 };
 
+export function apnsTopic(bundleId: string, pushType?: ApnsPushType): string {
+  return `${bundleId}${(pushType && TOPIC_SUFFIXES[pushType]) ?? ''}`;
+}
+
 export function buildHeaders(params: {
   jwt: string;
   bundleId: string;
-  topic?: string;
   priority: number;
   pushType?: ApnsPushType;
   collapseId?: string;
@@ -23,8 +26,7 @@ export function buildHeaders(params: {
 }): Record<string, string> {
   return {
     authorization: `bearer ${params.jwt}`,
-    'apns-topic':
-      params.topic ?? `${params.bundleId}${(params.pushType && TOPIC_SUFFIXES[params.pushType]) ?? ''}`,
+    'apns-topic': apnsTopic(params.bundleId, params.pushType),
     'apns-push-type': params.pushType ?? 'alert',
     'apns-priority': String(params.priority),
     ...(params.expiresAt === undefined

@@ -1,5 +1,5 @@
 export const MAX_DEVICE_PUSH_TOKENS = 100;
 
-export const DEVICE_PUSH_CONCURRENCY = 20;
+export const DEVICE_PUSH_CONCURRENCY = 6;
 
 export const MAX_DEVICE_PUSH_PAYLOAD_BYTES = 4096;
