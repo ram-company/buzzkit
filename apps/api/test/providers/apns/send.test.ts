@@ -192,6 +192,20 @@ describe('send', () => {
     expect(second).toMatchObject({ ok: false, code: 'provider_unavailable', retryAfterSeconds: 120 });
   });
 
+  it('keeps the usual retries for a 5xx APNs did not answer itself or a push that expires sooner', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response('<html>bad gateway</html>', { status: 502 }))
+      .mockResolvedValueOnce(apnsResponse(503, { reason: 'ServiceUnavailable' }));
+
+    const gateway = await apnsProvider.send(sendInput());
+    const shortLived = await apnsProvider.send(sendInput({ expiresAt: new Date(Date.now() + 5 * 60_000) }));
+
+    expect(gateway).toMatchObject({ ok: false, code: 'provider_unavailable' });
+    expect(shortLived).toMatchObject({ ok: false, code: 'provider_unavailable' });
+    expect(gateway.ok ? undefined : gateway.retryAfterSeconds).toBeUndefined();
+    expect(shortLived.ok ? undefined : shortLived.retryAfterSeconds).toBeUndefined();
+  });
+
   it('mints the JWT once per credential and reuses it within the memo', async () => {
     fetchMock.mockResolvedValue(apnsResponse(200));
     const tokens = createTokenMemo();

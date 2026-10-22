@@ -1,7 +1,11 @@
 import { BadRequestError, describeError } from '@buzzkit/api/libs/error';
 import { trace } from '@buzzkit/api/libs/telemetry';
 import { parseServiceAccount } from '@buzzkit/api/providers/fcm/index';
-import { PROVIDERS, type ProviderValidationResult } from '@buzzkit/api/providers/index';
+import {
+  type DeliveryErrorCode,
+  PROVIDERS,
+  type ProviderValidationResult,
+} from '@buzzkit/api/providers/index';
 import { type Db, environment as environmentEnum, eq, tables } from '@buzzkit/database';
 import type { CredentialUploadInput } from './schemas';
 import { decryptCredentialSecret } from './secrets';
@@ -61,13 +65,19 @@ export async function validateCredentialUpload(
   if (result.ok) {
     return { status: 'active', lastError: null };
   }
-  if (result.code === 'transport' || result.code === 'timeout' || result.code === 'provider_unavailable') {
+  if (isInconclusive(result.code)) {
     return { status: 'unvalidated', lastError: `${definition.displayName} unreachable: ${result.reason}` };
   }
 
   throw new BadRequestError(`${definition.displayName} rejected the credential: ${result.reason}`, {
     code: 'credential_rejected',
   });
+}
+
+function isInconclusive(code: DeliveryErrorCode): boolean {
+  return (
+    code === 'transport' || code === 'timeout' || code === 'provider_unavailable' || code === 'rate_limited'
+  );
 }
 
 export async function detectCredentialEnvironments(
@@ -105,11 +115,7 @@ export async function detectCredentialEnvironments(
   const accepted = probes.flatMap(
     ({ environment, result }): Array<{ environment: CredentialEnvironment; outcome: ValidationOutcome }> => {
       if (result.ok) return [{ environment, outcome: { status: 'active', lastError: null } }];
-      if (
-        result.code === 'transport' ||
-        result.code === 'timeout' ||
-        result.code === 'provider_unavailable'
-      ) {
+      if (isInconclusive(result.code)) {
         return [
           {
             environment,
@@ -126,7 +132,7 @@ export async function detectCredentialEnvironments(
   if (accepted.length > 0) return accepted;
 
   const rejection = probes.find(
-    ({ result }) => !result.ok && result.reason !== 'BadEnvironmentKeyInToken'
+    ({ result }) => !result.ok && result.reason !== 'BadEnvironmentKeyIdInToken'
   )?.result;
   throw new BadRequestError(
     rejection && !rejection.ok

@@ -10,11 +10,11 @@ One endpoint, discriminated by `provider` (Stripe's `type` pattern) — the regi
 - `{ "provider": "fcm", "serviceAccount": <JSON string or object> }` — push via FCM HTTP v1 (`project_id`, `client_email`, `private_key` required; `invalid_service_account` otherwise).
 - `{ "provider": "resend", "apiKey" }` — email via Resend.
 
-Returns 201 with the masked credentials (`status` is `active`, `unvalidated` when the provider could not be reached, or the request is a 400 `credential_rejected` when the provider rejected the key — for APNs that includes a key that is valid for neither environment, a swapped Team/Key ID, or a topic-specific key for another bundle). `tenant: credentials:write`.
+Returns 201 with the masked credentials (`status` is `active`, `unvalidated` when the provider could not be reached or answered without judging the key (a 5xx, a rate limit, APNs's `UnrelatedKeyIdInToken`), or the request is a 400 `credential_rejected` when the provider rejected the key — for APNs that includes a key that is valid for neither environment, a swapped Team/Key ID, or a topic-specific key for another bundle). `tenant: credentials:write`.
 
 **Recommended onboarding copy:** *Create one key in the Apple Developer portal: Keys → + → Apple Push Notifications service (APNs) → Environment: Sandbox & Production → Key Restriction: Team Scoped (All Topics). Download the `.p8` and paste it here with your Team ID, Key ID and bundle ID. If your team keeps separate Sandbox and Production keys, add each one — we detect which is which.* The dashboard shows the detected environments next to the key and nudges towards covering both; the API never rejects a single-environment key.
 
-**Which slot a send uses is decided by the device, not the sender.** A push subscription carries `environment` (`production` by default; the app sends `sandbox` for debug builds), and delivery picks the credential for that environment. A device whose environment has no credential fails as `no_credential` naming the environment. `BadEnvironmentKeyInToken` (a key in the wrong slot) is a terminal `invalid_credential`.
+**Which slot a send uses is decided by the device, not the sender.** A push subscription carries `environment` (`production` by default; the app sends `sandbox` for debug builds), and delivery picks the credential for that environment. A device whose environment has no credential fails as `no_credential` naming the environment. `BadEnvironmentKeyIdInToken` (a key in the wrong slot) is a terminal `invalid_credential`. Validation signs with the same cached provider token as sends, so validating a key never changes the token APNs sees.
 
 ## GET /v1/credentials — list the tenant's credentials (masked)
 ## GET /v1/credentials/:id — retrieve one (masked)

@@ -39,6 +39,14 @@ export async function sendRequest(
   return attempt(input, request);
 }
 
+function serverErrorWait(status: number, reason: string | null, request: ApnsRequest): number | undefined {
+  if (status < 500 || reason === null) return undefined;
+  const outlives =
+    !(request.expiresAt instanceof Date) ||
+    request.expiresAt.getTime() - Date.now() > SERVER_ERROR_RETRY_SECONDS * 1000;
+  return outlives ? SERVER_ERROR_RETRY_SECONDS : undefined;
+}
+
 async function attempt(input: ApnsRequestInput, request: ApnsRequest): Promise<ProviderSendResult> {
   const startedAt = Date.now();
   const cacheKey = await jwtCacheKey(input);
@@ -112,8 +120,7 @@ async function attempt(input: ApnsRequestInput, request: ApnsRequest): Promise<P
     code: classify(result.response.status, reason),
     reason: reason ?? `apns_status_${result.response.status}`,
     retryAfterSeconds:
-      retryAfterSeconds(result.response) ??
-      (result.response.status >= 500 ? SERVER_ERROR_RETRY_SECONDS : undefined),
+      retryAfterSeconds(result.response) ?? serverErrorWait(result.response.status, reason, request),
     request: request.body,
     response: result.captured,
     latencyMs: result.latencyMs,

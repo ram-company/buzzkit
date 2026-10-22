@@ -1,8 +1,9 @@
+import { cachedToken } from '../shared/cache';
 import { providerFetch } from '../shared/http';
 import type { ProviderValidationInput, ProviderValidationResult } from '../types';
 import { classify } from './classify';
 import { buildHeaders, HOSTS } from './request';
-import { createApnsJwt } from './tokens';
+import { createApnsJwt, JWT_TTL_SECONDS, jwtCacheKey } from './tokens';
 
 export async function validate({
   secret,
@@ -11,7 +12,9 @@ export async function validate({
 }: ProviderValidationInput): Promise<ProviderValidationResult> {
   let jwt: string;
   try {
-    jwt = await createApnsJwt({ p8: secret, teamId: details.teamId ?? '', keyId: details.keyId ?? '' });
+    jwt = await cachedToken(await jwtCacheKey({ secret, details }), JWT_TTL_SECONDS, () => {
+      return createApnsJwt({ p8: secret, teamId: details.teamId ?? '', keyId: details.keyId ?? '' });
+    });
   } catch {
     return {
       ok: false,
